@@ -574,8 +574,6 @@ pageoutd_init(void)
 
         sched_make_runnable(pageoutd_thr);
 }
-init_func(pageoutd_init);
-init_depends(sched_init);
 
 /*
  * Just cancel pageoutd
