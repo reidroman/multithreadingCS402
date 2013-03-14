@@ -6,15 +6,22 @@
 #   basis. Note that variables like CFLAGS are not defined here because they should
 #   generally not be changed.
 
+
+# Set which CS402 tests are to run.  See the assignment for details.  Valid
+# from 0 (no tests except running init) to 10 ( run all tests plus student
+# tests)
+     CS402TESTS=10
+
+
 #
 # Setting any of these variables will control which parts of the source tree
 # are built. To enable something set it to 1, otherwise set it to 0.
 #
-     DRIVERS=1
-         VFS=1
-        S5FS=1
-          VM=1
-     DYNAMIC=1
+     DRIVERS=0
+         VFS=0
+        S5FS=0
+          VM=0
+     DYNAMIC=0
 # When you finish S5FS, first enable "VM"; once this is working, then enable
 # "DYNAMIC".
 

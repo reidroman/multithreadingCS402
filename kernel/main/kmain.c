@@ -54,6 +54,8 @@ static void       hard_shutdown(void);
 
 static context_t bootstrap_context;
 
+extern void *testproc(int, void *);
+
 /**
  * This is the first real C function ever called. It performs a lot of
  * hardware-specific initialization, then creates a pseudo-context to
@@ -231,8 +233,7 @@ initproc_create(void)
 static void *
 initproc_run(int arg1, void *arg2)
 {
-        NOT_YET_IMPLEMENTED("PROCS: initproc_run");
-
+        testproc(arg1, arg2);
         return NULL;
 }
 
