@@ -4,7 +4,7 @@ LDFLAGS   := -m elf_i386 -z nodefaultlib
 
 include ../Global.mk
 
-CFLAGS    += -D__KERNEL__ -DCS402TESTS=${CS402TESTS}
+CFLAGS    += -D__KERNEL__ -DCS402TESTS=${CS402TESTS} -DGDBWAIT=${GDBWAIT}
 
 ###
 
