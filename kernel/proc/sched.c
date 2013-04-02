@@ -31,7 +31,9 @@ static void
 ktqueue_enqueue(ktqueue_t *q, kthread_t *thr)
 {
         KASSERT(!thr->kt_wchan);
+        /*list_insert_head(&q->tq_list, &thr->kt_qlink);*/
         list_insert_head(&q->tq_list, &thr->kt_qlink);
+        dbg_print("sched success!\n");
         thr->kt_wchan = q;
         q->tq_size++;
 }
@@ -204,5 +206,9 @@ sched_switch(void)
 void
 sched_make_runnable(kthread_t *thr)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_make_runnable");
+        BEING_IMPLEMENTED("PROCS: sched_make_runnable");
+        uint8_t IPL = apic_getipl();
+        apic_setipl(IPL_HIGH);
+        ktqueue_enqueue(&kt_runq, thr);
+        apic_setipl(IPL);
 }

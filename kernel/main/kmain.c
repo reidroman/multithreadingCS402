@@ -147,7 +147,15 @@ bootstrap(int arg1, void *arg2)
         /* necessary to finalize page table information */
         pt_template_init();
 
-        NOT_YET_IMPLEMENTED("PROCS: bootstrap");
+        BEING_IMPLEMENTED("PROCS: bootstrap");
+        proc_t *idle = proc_create("idle");
+        kthread_t *idlet = kthread_create(idle, idleproc_run, 0, 0);
+        curproc = idle;
+        curthr = idlet;
+
+        dbg_print("great success!\n");
+        context_make_active(&idlet->kt_ctx);
+        dbg_print("I'm a winner!\n");
 
         panic("weenix returned to bootstrap()!!! BAD!!!\n");
         return NULL;
@@ -236,8 +244,10 @@ idleproc_run(int arg1, void *arg2)
 static kthread_t *
 initproc_create(void)
 {
-        NOT_YET_IMPLEMENTED("PROCS: initproc_create");
-        return NULL;
+        BEING_IMPLEMENTED("PROCS: initproc_create");
+        proc_t *initproc = proc_create("init");
+        kthread_t *initthr = kthread_create(initproc, initproc_run, 0, 0);
+        return initthr;
 }
 
 /**

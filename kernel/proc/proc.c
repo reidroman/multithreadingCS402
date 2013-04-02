@@ -11,7 +11,6 @@
 #include "proc/kthread.h"
 #include "proc/proc.h"
 #include "proc/sched.h"
-#include "proc/proc.h"
 
 #include "mm/slab.h"
 #include "mm/page.h"
@@ -82,8 +81,25 @@ failed:
 proc_t *
 proc_create(char *name)
 {
-        NOT_YET_IMPLEMENTED("PROCS: proc_create");
-        return NULL;
+        BEING_IMPLEMENTED("PROCS: proc_create");
+        proc_t build_proc;
+        if (!strcmp(name, "idle")) build_proc.p_pid = PID_IDLE;
+        else if (!strcmp(name, "init")) build_proc.p_pid = PID_INIT;
+        else build_proc.p_pid = _proc_getid();
+        strcpy(name, build_proc.p_comm);
+        list_init(&build_proc.p_threads);
+        list_init(&build_proc.p_children);
+        build_proc.p_pproc = curproc;
+        build_proc.p_state = PROC_RUNNING;
+        sched_queue_init(&build_proc.p_wait);
+        build_proc.p_pagedir = pt_create_pagedir();
+        list_link_init(&build_proc.p_list_link);
+        list_insert_tail(&_proc_list, &build_proc.p_list_link);
+        list_link_init(&build_proc.p_child_link);
+        proc_t *new_proc = slab_obj_alloc(proc_allocator);
+        KASSERT(new_proc != NULL);
+        *new_proc = build_proc;
+        return new_proc;
 }
 
 /**

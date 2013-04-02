@@ -74,8 +74,30 @@ free_stack(char *stack)
 kthread_t *
 kthread_create(struct proc *p, kthread_func_t func, long arg1, void *arg2)
 {
-        NOT_YET_IMPLEMENTED("PROCS: kthread_create");
-        return NULL;
+        BEING_IMPLEMENTED("PROCS: kthread_create");
+        kthread_t build_thread;
+        build_thread.kt_kstack = alloc_stack();
+        build_thread.kt_retval;
+        build_thread.kt_errno;
+        build_thread.kt_proc = p;
+        build_thread.kt_cancelled = 0;
+        build_thread.kt_wchan = NULL;
+        build_thread.kt_state = KT_NO_STATE;
+        list_link_init(&build_thread.kt_qlink);
+        list_link_init(&build_thread.kt_plink);
+        list_insert_tail(&p->p_threads, &build_thread.kt_plink);
+#ifdef __MTP__
+        build_thread.kt_detached;
+        list_init(&build_thread.kt_joinq);
+#endif
+        context_setup(&build_thread.kt_ctx, func, arg1, arg2,
+                build_thread.kt_kstack, DEFAULT_STACK_SIZE,
+                p->p_pagedir);
+        kthread_t *new_thread = slab_obj_alloc(kthread_allocator);
+        KASSERT(new_thread != NULL);
+        *new_thread = build_thread;
+        dbg_print("Look at me makin a thread!\n");
+        return new_thread;
 }
 
 void

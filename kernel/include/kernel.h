@@ -31,6 +31,10 @@ extern void *kernel_end_init;
         (dbg_print("Not yet implemented: %s, file %s, line %d\n", \
                    f, __FILE__, __LINE__))
 
+#define BEING_IMPLEMENTED(f) \
+        (dbg_print("Being implemented: %s, file %s, line %d\n", \
+                   f, __FILE__, __LINE__))
+
 #ifndef MIN
 #define MIN(a,b)  ((a) < (b) ? (a) : (b))
 #endif
