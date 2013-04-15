@@ -128,8 +128,10 @@ sched_cancellable_sleep_on(ktqueue_t *q)
 kthread_t *
 sched_wakeup_on(ktqueue_t *q)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_wakeup_on");
-        return NULL;
+        BEING_IMPLEMENTED("PROCS: sched_wakeup_on");
+	kthread_t *wakingup = ktqueue_dequeue(q);
+	if (wakingup != NULL) sched_make_runnable(wakingup);
+        return wakingup;
 }
 
 void

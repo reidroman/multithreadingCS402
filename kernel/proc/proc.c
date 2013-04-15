@@ -82,20 +82,18 @@ proc_t *
 proc_create(char *name)
 {
         BEING_IMPLEMENTED("PROCS: proc_create");
-        proc_t build_proc;
-        if (!strcmp(name, "idle")) build_proc.p_pid = PID_IDLE;
-        else if (!strcmp(name, "init")) build_proc.p_pid = PID_INIT;
-        else build_proc.p_pid = _proc_getid();
-        strncpy(build_proc.p_comm, name, PROC_NAME_LEN);
-        build_proc.p_pproc = curproc;
-        build_proc.p_state = PROC_RUNNING;
-        build_proc.p_pagedir = pt_create_pagedir();
         proc_t *new_proc = slab_obj_alloc(proc_allocator);
         KASSERT(new_proc != NULL);
-        *new_proc = build_proc;
+        if (!strcmp(name, "idle")) new_proc->p_pid = PID_IDLE;
+        else if (!strcmp(name, "init")) new_proc->p_pid = PID_INIT;
+        else new_proc->p_pid = _proc_getid();
+        strncpy(new_proc->p_comm, name, PROC_NAME_LEN);
         list_init(&new_proc->p_threads);
         list_init(&new_proc->p_children);
+        new_proc->p_pproc = curproc;
+        new_proc->p_state = PROC_RUNNING;
         sched_queue_init(&new_proc->p_wait);
+        new_proc->p_pagedir = pt_create_pagedir();
         list_link_init(&new_proc->p_list_link);
         list_insert_tail(&_proc_list, &new_proc->p_list_link);
         list_link_init(&new_proc->p_child_link);
@@ -130,7 +128,16 @@ proc_create(char *name)
 void
 proc_cleanup(int status)
 {
-        NOT_YET_IMPLEMENTED("PROCS: proc_cleanup");
+        BEING_IMPLEMENTED("PROCS: proc_cleanup");
+	curproc->p_status = status;
+	curproc->p_state = PROC_DEAD;
+	proc_t *initproc = proc_lookup(1);
+	proc_t *child;
+	list_iterate_begin(&curproc->p_children, child, proc_t, p_child_link) {
+	        child->p_pproc = initproc;
+	} list_iterate_end();
+	sched_wakeup_on(&curproc->p_pproc->p_wait);
+	sched_switch();
 }
 
 /*
@@ -189,7 +196,7 @@ void
 proc_thread_exited(void *retval)
 {
         BEING_IMPLEMENTED("PROCS: proc_thread_exited");
-	do_exit((int) retval);
+	proc_cleanup(retval);
 }
 
 /* If pid is -1 dispose of one of the exited children of the current
@@ -217,11 +224,12 @@ do_waitpid(pid_t pid, int options, int *status)
                         if (child->p_state == PROC_DEAD) {
 				dbg_print(child->p_comm);
 				dbg_print("\n");
+				kthread_destroy(list_head(&child->p_threads, kthread_t, kt_plink));
 			        break;
                         }
                 } list_iterate_end();
 	        sched_cancellable_sleep_on(&curproc->p_wait);
-		return curproc->p_pid;
+		return child->p_pid;
 	}
 	else if ((child = proc_lookup(pid)) != NULL) {
 	        sched_cancellable_sleep_on(&curproc->p_wait);
@@ -242,13 +250,12 @@ do_exit(int status)
         BEING_IMPLEMENTED("PROCS: do_exit");
 	kthread_t *kthr;
 	void *retval;
-#ifdef __MTP__
 	list_iterate_begin(&curproc->p_threads, kthr, kthread_t, kt_plink) {
 		kthread_cancel(kthr, &status);
+#ifdef __MTP__
 		kthread_join(kthr, &retval);
-	} list_iterate_end();
 #endif
-	kthread_destroy(curthr);
+	} list_iterate_end();
 }
 
 size_t
