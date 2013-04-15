@@ -76,26 +76,28 @@ kthread_create(struct proc *p, kthread_func_t func, long arg1, void *arg2)
 {
         BEING_IMPLEMENTED("PROCS: kthread_create");
         kthread_t build_thread;
-        build_thread.kt_kstack = alloc_stack();
         build_thread.kt_retval;
         build_thread.kt_errno;
         build_thread.kt_proc = p;
         build_thread.kt_cancelled = 0;
         build_thread.kt_wchan = NULL;
         build_thread.kt_state = KT_NO_STATE;
-        list_link_init(&build_thread.kt_qlink);
-        list_link_init(&build_thread.kt_plink);
-        list_insert_tail(&p->p_threads, &build_thread.kt_plink);
 #ifdef __MTP__
-        build_thread.kt_detached;
-        list_init(&build_thread.kt_joinq);
+        build_thread.kt_detached = 0;
 #endif
-        context_setup(&build_thread.kt_ctx, func, arg1, arg2,
-                build_thread.kt_kstack, DEFAULT_STACK_SIZE,
-                p->p_pagedir);
         kthread_t *new_thread = slab_obj_alloc(kthread_allocator);
         KASSERT(new_thread != NULL);
         *new_thread = build_thread;
+        new_thread->kt_kstack = alloc_stack();
+        context_setup(&new_thread->kt_ctx, func, arg1, arg2,
+                new_thread->kt_kstack, DEFAULT_STACK_SIZE,
+                p->p_pagedir);
+        list_link_init(&new_thread->kt_qlink);
+        list_link_init(&new_thread->kt_plink);
+        list_insert_tail(&p->p_threads, &new_thread->kt_plink);
+#ifdef __MTP__
+        list_init(&new_thread->kt_joinq);
+#endif
         dbg_print("Look at me makin a thread!\n");
         return new_thread;
 }
@@ -125,7 +127,14 @@ kthread_destroy(kthread_t *t)
 void
 kthread_cancel(kthread_t *kthr, void *retval)
 {
-        NOT_YET_IMPLEMENTED("PROCS: kthread_cancel");
+        BEING_IMPLEMENTED("PROCS: kthread_cancel");
+	kthr->kt_retval = retval;
+	if (kthr = curthr) {
+	        curthr->kt_state = KT_EXITED;
+	        curthr->kt_retval = retval;
+	        proc_thread_exited(retval);
+	}
+	else sched_cancel(kthr);
 }
 
 /*
@@ -141,7 +150,10 @@ kthread_cancel(kthread_t *kthr, void *retval)
 void
 kthread_exit(void *retval)
 {
-        NOT_YET_IMPLEMENTED("PROCS: kthread_exit");
+        BEING_IMPLEMENTED("PROCS: kthread_exit");
+	curthr->kt_state = KT_EXITED;
+	curthr->kt_retval = retval;
+	proc_thread_exited(retval);
 }
 
 /*
@@ -174,7 +186,9 @@ kthread_detach(kthread_t *kthr)
 int
 kthread_join(kthread_t *kthr, void **retval)
 {
-        NOT_YET_IMPLEMENTED("MTP: kthread_join");
+        BEING_IMPLEMENTED("MTP: kthread_join");
+	sched_cancellable_sleep_on(curproc->p_wait);
+	sched_switch();
         return 0;
 }
 

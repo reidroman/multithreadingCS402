@@ -31,7 +31,6 @@ static void
 ktqueue_enqueue(ktqueue_t *q, kthread_t *thr)
 {
         KASSERT(!thr->kt_wchan);
-        /*list_insert_head(&q->tq_list, &thr->kt_qlink);*/
         list_insert_head(&q->tq_list, &thr->kt_qlink);
         dbg_print("sched success!\n");
         thr->kt_wchan = q;
@@ -102,7 +101,10 @@ sched_queue_empty(ktqueue_t *q)
 void
 sched_sleep_on(ktqueue_t *q)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_sleep_on");
+        BEING_IMPLEMENTED("PROCS: sched_sleep_on");
+	curthr->kt_state = KT_SLEEP;
+	ktqueue_enqueue(q, curthr);
+	sched_switch();
 }
 
 
@@ -116,7 +118,10 @@ sched_sleep_on(ktqueue_t *q)
 int
 sched_cancellable_sleep_on(ktqueue_t *q)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_cancellable_sleep_on");
+        BEING_IMPLEMENTED("PROCS: sched_cancellable_sleep_on");
+	curthr->kt_state = KT_SLEEP_CANCELLABLE;
+	ktqueue_enqueue(q, curthr);
+	sched_switch();
         return 0;
 }
 
@@ -145,7 +150,12 @@ sched_broadcast_on(ktqueue_t *q)
 void
 sched_cancel(struct kthread *kthr)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_cancel");
+        BEING_IMPLEMENTED("PROCS: sched_cancel");
+	kthr->kt_cancelled = 1;
+	if (kthr->kt_state == KT_SLEEP_CANCELLABLE) {
+	        list_remove(&kthr->kt_qlink);
+		sched_make_runnable(kthr);
+	}
 }
 
 /*
@@ -187,7 +197,14 @@ sched_cancel(struct kthread *kthr)
 void
 sched_switch(void)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_switch");
+        BEING_IMPLEMENTED("PROCS: sched_switch");
+	uint8_t IPL = intr_getipl();
+	context_t old_ctx = curthr->kt_ctx;
+	intr_setipl(IPL_HIGH);
+	curthr = ktqueue_dequeue(&kt_runq);
+	curproc = curthr->kt_proc;
+	intr_setipl(IPL);
+	context_switch(&old_ctx, &curthr->kt_ctx);
 }
 
 /*
@@ -207,8 +224,9 @@ void
 sched_make_runnable(kthread_t *thr)
 {
         BEING_IMPLEMENTED("PROCS: sched_make_runnable");
-        uint8_t IPL = apic_getipl();
-        apic_setipl(IPL_HIGH);
+        uint8_t IPL = intr_getipl();
+        intr_setipl(IPL_HIGH);
+        thr->kt_state = KT_RUN;
         ktqueue_enqueue(&kt_runq, thr);
-        apic_setipl(IPL);
+        intr_setipl(IPL);
 }

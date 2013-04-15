@@ -86,19 +86,20 @@ proc_create(char *name)
         if (!strcmp(name, "idle")) build_proc.p_pid = PID_IDLE;
         else if (!strcmp(name, "init")) build_proc.p_pid = PID_INIT;
         else build_proc.p_pid = _proc_getid();
-        strcpy(name, build_proc.p_comm);
-        list_init(&build_proc.p_threads);
-        list_init(&build_proc.p_children);
+        strncpy(build_proc.p_comm, name, PROC_NAME_LEN);
         build_proc.p_pproc = curproc;
         build_proc.p_state = PROC_RUNNING;
-        sched_queue_init(&build_proc.p_wait);
         build_proc.p_pagedir = pt_create_pagedir();
-        list_link_init(&build_proc.p_list_link);
-        list_insert_tail(&_proc_list, &build_proc.p_list_link);
-        list_link_init(&build_proc.p_child_link);
         proc_t *new_proc = slab_obj_alloc(proc_allocator);
         KASSERT(new_proc != NULL);
         *new_proc = build_proc;
+        list_init(&new_proc->p_threads);
+        list_init(&new_proc->p_children);
+        sched_queue_init(&new_proc->p_wait);
+        list_link_init(&new_proc->p_list_link);
+        list_insert_tail(&_proc_list, &new_proc->p_list_link);
+        list_link_init(&new_proc->p_child_link);
+	if (curproc != NULL) list_insert_tail(&curproc->p_children, &new_proc->p_child_link);
         return new_proc;
 }
 
@@ -187,7 +188,8 @@ proc_list()
 void
 proc_thread_exited(void *retval)
 {
-        NOT_YET_IMPLEMENTED("PROCS: proc_thread_exited");
+        BEING_IMPLEMENTED("PROCS: proc_thread_exited");
+	do_exit((int) retval);
 }
 
 /* If pid is -1 dispose of one of the exited children of the current
@@ -208,8 +210,24 @@ proc_thread_exited(void *retval)
 pid_t
 do_waitpid(pid_t pid, int options, int *status)
 {
-        NOT_YET_IMPLEMENTED("PROCS: do_waitpid");
-        return 0;
+        BEING_IMPLEMENTED("PROCS: do_waitpid");
+	proc_t *child;
+	if (pid == -1) {
+                list_iterate_begin(&curproc->p_children, child, proc_t, p_child_link) {
+                        if (child->p_state == PROC_DEAD) {
+				dbg_print(child->p_comm);
+				dbg_print("\n");
+			        break;
+                        }
+                } list_iterate_end();
+	        sched_cancellable_sleep_on(&curproc->p_wait);
+		return curproc->p_pid;
+	}
+	else if ((child = proc_lookup(pid)) != NULL) {
+	        sched_cancellable_sleep_on(&curproc->p_wait);
+		return curproc->p_pid;
+	}
+	else return -ECHILD;
 }
 
 /*
@@ -221,7 +239,16 @@ do_waitpid(pid_t pid, int options, int *status)
 void
 do_exit(int status)
 {
-        NOT_YET_IMPLEMENTED("PROCS: do_exit");
+        BEING_IMPLEMENTED("PROCS: do_exit");
+	kthread_t *kthr;
+	void *retval;
+#ifdef __MTP__
+	list_iterate_begin(&curproc->p_threads, kthr, kthread_t, kt_plink) {
+		kthread_cancel(kthr, &status);
+		kthread_join(kthr, &retval);
+	} list_iterate_end();
+#endif
+	kthread_destroy(curthr);
 }
 
 size_t
