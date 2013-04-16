@@ -84,6 +84,7 @@ proc_create(char *name)
         BEING_IMPLEMENTED("PROCS: proc_create");
         proc_t *new_proc = slab_obj_alloc(proc_allocator);
         KASSERT(new_proc != NULL);
+	memset(new_proc, 0, sizeof(proc_t));
         if (!strcmp(name, "idle")) new_proc->p_pid = PID_IDLE;
         else if (!strcmp(name, "init")) new_proc->p_pid = PID_INIT;
         else new_proc->p_pid = _proc_getid();
@@ -218,24 +219,26 @@ pid_t
 do_waitpid(pid_t pid, int options, int *status)
 {
         BEING_IMPLEMENTED("PROCS: do_waitpid");
-	proc_t *child;
-	if (pid == -1) {
-                list_iterate_begin(&curproc->p_children, child, proc_t, p_child_link) {
-                        if (child->p_state == PROC_DEAD) {
-				dbg_print(child->p_comm);
-				dbg_print("\n");
-				kthread_destroy(list_head(&child->p_threads, kthread_t, kt_plink));
-			        break;
-                        }
-                } list_iterate_end();
-	        sched_cancellable_sleep_on(&curproc->p_wait);
-		return child->p_pid;
-	}
-	else if ((child = proc_lookup(pid)) != NULL) {
-	        sched_cancellable_sleep_on(&curproc->p_wait);
-		return curproc->p_pid;
-	}
-	else return -ECHILD;
+	proc_t *child = NULL;
+	proc_t *deado = NULL;
+	do {
+		if (pid == -1) {
+			list_iterate_begin(&curproc->p_children, child, proc_t, p_child_link) {
+				if (child->p_state == PROC_DEAD) deado = child;
+			} list_iterate_end();
+			if (deado != NULL) child = deado;
+		}
+		else child = proc_lookup(pid);
+		if (child == NULL || child->p_pproc != curproc) return -ECHILD;
+		if (child->p_state != PROC_DEAD) sched_cancellable_sleep_on(&curproc->p_wait);
+		else break;
+	} while (1);
+	*status = child->p_status;
+	kthread_destroy(list_head(&child->p_threads, kthread_t, kt_plink));
+	pt_destroy_pagedir(child->p_pagedir);
+	list_remove(&child->p_list_link);
+	list_remove(&child->p_child_link);
+	return child->p_pid;
 }
 
 /*

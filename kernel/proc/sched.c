@@ -104,7 +104,9 @@ sched_sleep_on(ktqueue_t *q)
         BEING_IMPLEMENTED("PROCS: sched_sleep_on");
 	curthr->kt_state = KT_SLEEP;
 	ktqueue_enqueue(q, curthr);
+	if (curthr->kt_cancelled) return;
 	sched_switch();
+	if (curthr->kt_cancelled) return;
 }
 
 
@@ -120,6 +122,7 @@ sched_cancellable_sleep_on(ktqueue_t *q)
 {
         BEING_IMPLEMENTED("PROCS: sched_cancellable_sleep_on");
 	curthr->kt_state = KT_SLEEP_CANCELLABLE;
+	if (curthr->kt_cancelled) return;
 	ktqueue_enqueue(q, curthr);
 	sched_switch();
         return 0;
@@ -137,7 +140,9 @@ sched_wakeup_on(ktqueue_t *q)
 void
 sched_broadcast_on(ktqueue_t *q)
 {
-        NOT_YET_IMPLEMENTED("PROCS: sched_broadcast_on");
+        BEING_IMPLEMENTED("PROCS: sched_broadcast_on");
+	list_link_t *link;
+	while (sched_wakeup_on(q) != NULL);
 }
 
 /*
@@ -156,6 +161,7 @@ sched_cancel(struct kthread *kthr)
 	kthr->kt_cancelled = 1;
 	if (kthr->kt_state == KT_SLEEP_CANCELLABLE) {
 	        list_remove(&kthr->kt_qlink);
+		kthr->kt_wchan = NULL;
 		sched_make_runnable(kthr);
 	}
 }
@@ -201,12 +207,13 @@ sched_switch(void)
 {
         BEING_IMPLEMENTED("PROCS: sched_switch");
 	uint8_t IPL = intr_getipl();
-	context_t old_ctx = curthr->kt_ctx;
+	context_t *old_ctx = &curthr->kt_ctx;
 	intr_setipl(IPL_HIGH);
+	if (curthr->kt_state == KT_RUN) ktqueue_enqueue(&kt_runq, curthr);
 	curthr = ktqueue_dequeue(&kt_runq);
 	curproc = curthr->kt_proc;
 	intr_setipl(IPL);
-	context_switch(&old_ctx, &curthr->kt_ctx);
+	context_switch(old_ctx, &curthr->kt_ctx);
 }
 
 /*
